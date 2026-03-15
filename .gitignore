@@ -5,6 +5,8 @@
 *.so
 *.dylib
 main
+monitoring-website
+server
 
 # Test binary
 *.test
