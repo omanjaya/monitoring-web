@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: monitoring-backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - SERVER_MODE=debug
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - DATABASE_USER=monitoring
+      - DATABASE_PASSWORD=${DB_PASSWORD:-monitoring123}
+      - DATABASE_NAME=monitoring_website
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_IDS}
+      - TELEGRAM_ENABLED=${TELEGRAM_ENABLED:-true}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-this-in-production}
+      - JWT_EXPIRATION_HOURS=24
+      - AI_ENABLED=${AI_ENABLED:-false}
+      - AI_PROVIDER=${AI_PROVIDER:-groq}
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-}
+      - TZ=Asia/Makassar
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_URL=http://monitoring-backend:8080
+    container_name: monitoring-frontend
+    ports:
+      - "3001:3000"
+    environment:
+      - BACKEND_URL=http://monitoring-backend:8080
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  db:
+    image: mysql:8.0
+    container_name: monitoring-db
+    command: --default-time-zone='+08:00'
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=monitoring_website
+      - MYSQL_USER=monitoring
+      - MYSQL_PASSWORD=${DB_PASSWORD:-monitoring123}
+      - TZ=Asia/Makassar
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  adminer:
+    image: adminer
+    container_name: monitoring-adminer
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+volumes:
+  mysql_data:
+
+networks:
+  monitoring-network:
+    driver: bridge

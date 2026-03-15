@@ -1,0 +1,91 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: monitoring-backend-dev
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - SERVER_MODE=debug
+      - DATABASE_HOST=db
+      - DATABASE_PORT=3306
+      - DATABASE_USER=monitoring
+      - DATABASE_PASSWORD=${DB_PASSWORD:-monitoring123}
+      - DATABASE_NAME=monitoring_website
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_IDS}
+      - TELEGRAM_ENABLED=${TELEGRAM_ENABLED:-false}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-key}
+      - JWT_EXPIRATION_HOURS=24
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+
+  frontend:
+    image: node:22-alpine
+    container_name: monitoring-frontend-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "3001:3000"
+    environment:
+      - BACKEND_URL=http://monitoring-backend-dev:8080
+      - WATCHPACK_POLLING=true
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    depends_on:
+      - app
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  db:
+    image: mysql:8.0
+    container_name: monitoring-db-dev
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=monitoring_website
+      - MYSQL_USER=monitoring
+      - MYSQL_PASSWORD=${DB_PASSWORD:-monitoring123}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data_dev:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+  adminer:
+    image: adminer
+    container_name: monitoring-adminer-dev
+    ports:
+      - "8081:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - monitoring-network
+
+volumes:
+  mysql_data_dev:
+  go-modules:
+  frontend_node_modules:
+
+networks:
+  monitoring-network:
+    driver: bridge

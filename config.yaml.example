@@ -1,0 +1,108 @@
+# Monitoring Website - Configuration File
+# Salin file ini ke config.yaml dan sesuaikan nilainya
+
+server:
+  host: "0.0.0.0"
+  port: 8080
+  mode: "debug"  # debug atau release
+  allowed_origins:  # Daftar origin yang diizinkan untuk CORS (gunakan ["*"] untuk dev)
+    - "https://monitoring.baliprov.go.id"
+    - "http://localhost:3000"
+    - "http://localhost:8080"
+  csp_policy: ""  # Kosongkan untuk default, atau isi custom CSP policy
+
+database:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "your_password_here"
+  name: "monitoring_website"
+
+telegram:
+  bot_token: "YOUR_BOT_TOKEN_FROM_BOTFATHER"
+  chat_ids:
+    - "-1001234567890"  # Group/Channel ID 1
+    - "-1009876543210"  # Group/Channel ID 2 (opsional)
+  enabled: true
+
+email:
+  enabled: false
+  smtp_host: "smtp.gmail.com"
+  smtp_port: 587
+  username: "your-email@gmail.com"
+  password: "your-app-password"  # Gunakan App Password untuk Gmail
+  from: "your-email@gmail.com"
+  from_name: "Monitoring Website Diskominfos Bali"
+  recipients:
+    - "admin@example.com"
+    - "operator@example.com"
+  use_tls: true
+
+webhook:
+  enabled: false
+  urls:
+    - "https://your-webhook-endpoint.com/alerts"
+    - "https://slack.com/api/webhook/xxx"  # Contoh Slack webhook
+  secret_key: "your-webhook-secret-for-signature"  # Opsional, untuk verifikasi signature
+  timeout: 10  # Timeout dalam detik
+
+notification:
+  digest_enabled: false          # Aktifkan mode digest (batch notifikasi)
+  digest_interval: 15            # Interval digest dalam menit
+  quiet_hours_start: "22:00"     # Jam mulai quiet hours (opsional)
+  quiet_hours_end: "07:00"       # Jam selesai quiet hours (opsional)
+
+jwt:
+  secret_key: "ganti-dengan-secret-key-yang-kuat-minimal-32-karakter"
+  expiration_hours: 24
+
+monitoring:
+  uptime_interval: 5        # Interval cek uptime (menit)
+  content_scan_interval: 30 # Interval scan konten (menit)
+  ssl_check_interval: 1440  # Interval cek SSL (menit) - default 24 jam
+  http_timeout: 30          # Timeout HTTP request (detik)
+  response_time_warning: 3000   # Warning jika response > 3 detik (ms)
+  response_time_critical: 10000 # Critical jika response > 10 detik (ms)
+  max_concurrent_checks: 20     # Maksimum concurrent checks
+  restrict_domain: false        # Batasi hanya domain baliprov.go.id
+  enable_http2: true            # Aktifkan HTTP/2 support untuk uptime checks
+  enable_ipv6: true             # Aktifkan resolusi IPv6 dan deteksi dukungan IPv6
+
+scheduler:
+  uptime_check: "0 */5 * * * *"     # Setiap 5 menit
+  ssl_check: "0 0 */6 * * *"        # Setiap 6 jam
+  content_scan: "0 0 * * * *"       # Setiap jam
+  daily_summary: "0 0 8 * * *"      # Jam 8 pagi setiap hari
+
+keywords:
+  gambling:
+    - "slot gacor"
+    - "slot online"
+    - "judi online"
+    - "togel"
+    - "casino"
+    - "poker online"
+    - "pragmatic"
+    - "joker123"
+    - "sbobet"
+    - "maxwin"
+    - "scatter"
+    - "jackpot"
+    - "rtp slot"
+    - "bocoran slot"
+    - "demo slot"
+    - "bandar togel"
+    - "live casino"
+    - "deposit pulsa"
+    - "slot88"
+    - "slot777"
+    - "gacor hari ini"
+
+  defacement:
+    - "hacked by"
+    - "defaced by"
+    - "owned by"
+    - "greetz to"
+    - "cyber army"
+    - "indonesian hacker"
+    - "security breach"
