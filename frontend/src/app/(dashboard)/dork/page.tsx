@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Search,
@@ -15,6 +15,7 @@ import {
   CircleDot,
   Plus,
   Trash2,
+  Pencil,
   AlertTriangle,
   Loader2,
   Filter,
@@ -158,6 +159,7 @@ export default function DorkPage() {
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<"detections" | "patterns" | "defacement">("detections")
   const [showCreatePattern, setShowCreatePattern] = useState(false)
+  const [editingPattern, setEditingPattern] = useState<null | { id: number; name: string; pattern: string; category: string; severity: string; pattern_type: string; description: string }>(null)
   const [expandedDetection, setExpandedDetection] = useState<number | null>(null)
   const [detailDialogId, setDetailDialogId] = useState<number | null>(null)
   const [scanningWebsiteId, setScanningWebsiteId] = useState<number | null>(null)
@@ -882,14 +884,32 @@ export default function DorkPage() {
                           {pattern.is_active ? "Active" : "Inactive"}
                         </span>
                         {!pattern.is_default && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDeletePattern(pattern.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                              onClick={() => setEditingPattern({
+                                id: pattern.id,
+                                name: pattern.name || "",
+                                pattern: pattern.pattern,
+                                category: pattern.category,
+                                severity: pattern.severity || "medium",
+                                pattern_type: pattern.pattern_type || "regex",
+                                description: pattern.description || "",
+                              })}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => handleDeletePattern(pattern.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>
@@ -1083,6 +1103,17 @@ export default function DorkPage() {
         onCreated={() => {
           queryClient.invalidateQueries({ queryKey: ["dork-patterns"] })
           queryClient.invalidateQueries({ queryKey: ["dork-stats"] })
+        }}
+      />
+
+      {/* Edit Pattern Dialog */}
+      <EditPatternDialog
+        pattern={editingPattern}
+        onOpenChange={(open) => { if (!open) setEditingPattern(null) }}
+        categories={categories}
+        onUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ["dork-patterns"] })
+          setEditingPattern(null)
         }}
       />
     </div>
@@ -1303,6 +1334,149 @@ function DetectionDetailDialog({
             </div>
           </div>
         ) : null}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// --- Edit Pattern Dialog ---
+function EditPatternDialog({ pattern, onOpenChange, categories, onUpdated }: {
+  pattern: null | { id: number; name: string; pattern: string; category: string; severity: string; pattern_type: string; description: string }
+  onOpenChange: (open: boolean) => void
+  categories: Array<{ value: string; label: string }>
+  onUpdated: () => void
+}) {
+  const [name, setName] = useState(pattern?.name ?? "")
+  const [patternStr, setPatternStr] = useState(pattern?.pattern ?? "")
+  const [category, setCategory] = useState(pattern?.category ?? "")
+  const [severity, setSeverity] = useState(pattern?.severity ?? "medium")
+  const [patternType, setPatternType] = useState(pattern?.pattern_type ?? "regex")
+  const [description, setDescription] = useState(pattern?.description ?? "")
+  const [submitting, setSubmitting] = useState(false)
+
+  // Sync state when pattern changes
+  useEffect(() => {
+    if (pattern) {
+      setName(pattern.name)
+      setPatternStr(pattern.pattern)
+      setCategory(pattern.category)
+      setSeverity(pattern.severity)
+      setPatternType(pattern.pattern_type)
+      setDescription(pattern.description)
+    }
+  }, [pattern])
+
+  const handleSubmit = async () => {
+    if (!pattern) return
+    if (!name.trim()) { toast.error("Nama pattern harus diisi"); return }
+    if (!patternStr.trim()) { toast.error("Pattern harus diisi"); return }
+    if (!category) { toast.error("Kategori harus dipilih"); return }
+
+    try {
+      setSubmitting(true)
+      await dorkApi.updatePattern(pattern.id, {
+        name: name.trim(),
+        pattern: patternStr.trim(),
+        category,
+        severity,
+        pattern_type: patternType,
+        description: description.trim() || undefined,
+      })
+      toast.success("Pattern berhasil diupdate")
+      onUpdated()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Gagal mengupdate pattern")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!pattern} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-sm">Edit Pattern</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Nama</Label>
+            <Input
+              className="h-8 text-[13px]"
+              placeholder="Nama pattern"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Pattern</Label>
+            <Textarea
+              className="text-[13px] font-mono min-h-[60px]"
+              placeholder="(?i)slot\s*online|judi\s*bola"
+              value={patternStr}
+              onChange={(e) => setPatternStr(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Kategori</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="h-8 text-[13px]">
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(c => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Severity</Label>
+              <Select value={severity} onValueChange={setSeverity}>
+                <SelectTrigger className="h-8 text-[13px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SEVERITIES.map(s => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Tipe Pattern</Label>
+            <Select value={patternType} onValueChange={setPatternType}>
+              <SelectTrigger className="h-8 text-[13px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="regex">Regex</SelectItem>
+                <SelectItem value="keyword">Keyword</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Deskripsi (opsional)</Label>
+            <Textarea
+              className="text-[13px] min-h-[40px]"
+              placeholder="Deskripsi pattern..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" className="h-8 text-xs" onClick={() => onOpenChange(false)}>
+              Batal
+            </Button>
+            <Button className="h-8 text-xs" onClick={handleSubmit} disabled={submitting}>
+              {submitting ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5 mr-1.5" />}
+              Update
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
